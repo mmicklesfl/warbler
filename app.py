@@ -321,16 +321,15 @@ def homepage():
     pdb.set_trace()  # Debugger will pause execution here
 
     if g.user:
+        following_ids = [u.id for u in g.user.following] + [g.user.id]
         messages = (Message
                     .query
+                    .filter(Message.user_id.in_(following_ids))
                     .order_by(Message.timestamp.desc())
                     .limit(100)
                     .all())
-
         return render_template('home.html', messages=messages)
 
-    else:
-        return render_template('home-anon.html')
 
 
 ##############################################################################
