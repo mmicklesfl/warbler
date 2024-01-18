@@ -8,7 +8,6 @@ class MessageForm(FlaskForm):
 
     text = TextAreaField('text', validators=[DataRequired()])
 
-
 class UserAddForm(FlaskForm):
     """Form for adding users."""
 

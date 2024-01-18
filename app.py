@@ -5,12 +5,13 @@ from flask import Flask, render_template, request, flash, redirect, session, g
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
-from forms import UserAddForm, LoginForm, MessageForm
-from models import db, connect_db, User, Message
+from forms import UserAddForm, LoginForm, MessageForm, EditProfileForm
+from models import db, connect_db, User, Message, Likes
 
 CURR_USER_KEY = "curr_user"
 
 app = Flask(__name__)
+
 
 # Get DB_URI from environ variable (useful for production/testing) or,
 # if not set there, use development local db.
@@ -65,6 +66,9 @@ def signup():
     If the there already is a user with that username: flash message
     and re-present form.
     """
+    
+    if CURR_USER_KEY in session:
+        del session[CURR_USER_KEY]
 
     form = UserAddForm()
 
@@ -144,18 +148,19 @@ def users_show(user_id):
     """Show user profile."""
 
     user = User.query.get_or_404(user_id)
-
     # snagging messages in order from the database;
     # user.messages won't be in order by default
+
     messages = (Message
                 .query
                 .filter(Message.user_id == user_id)
                 .order_by(Message.timestamp.desc())
                 .limit(100)
                 .all())
-    return render_template('users/show.html', user=user, messages=messages)
+    likes = [message.id for message in user.likes]
+    return render_template('users/show.html', user=user, messages=messages, likes=likes)
 
-@app.route('/users/edit', methods=["GET", "POST"])
+@app.route('/users/profile', methods=["GET", "POST"])
 def edit_profile():
     """Edit user profile."""
 
@@ -234,13 +239,6 @@ def stop_following(follow_id):
     return redirect(f"/users/{g.user.id}/following")
 
 
-@app.route('/users/profile', methods=["GET", "POST"])
-def profile():
-    """Update profile for current user."""
-
-    # IMPLEMENT THIS
-
-
 @app.route('/users/delete', methods=["POST"])
 def delete_user():
     """Delete user."""
@@ -306,6 +304,44 @@ def messages_destroy(message_id):
     return redirect(f"/users/{g.user.id}")
 
 
+@app.route('/users/<int:user_id>/likes', methods=["GET"])
+def show_likes(user_id):
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    user = User.query.get_or_404(user_id)
+    return render_template('users/likes.html', user=user, likes=user.likes)
+
+
+@app.route('/messages/<int:message_id>/like', methods=['POST'])
+def add_like(message_id):
+    """Toggle a liked message for the currently-logged-in user."""
+    
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    message = Message.query.get_or_404(message_id)
+
+    if message.user_id == g.user.id:
+        flash("You cannot like your own message.", "danger")
+        return redirect("/")
+
+    like = Like.query.filter_by(user_id=g.user.id, message_id=message_id).first()
+
+    if like:
+        db.session.delete(like)
+        db.session.commit()
+        flash("Like removed.", "success")
+    else:
+        new_like = Like(user_id=g.user.id, message_id=message_id)
+        db.session.add(new_like)
+        db.session.commit()
+        flash("Message liked!", "success")
+
+    return redirect("/")
+
 ##############################################################################
 # Homepage and error pages
 
@@ -330,7 +366,6 @@ def homepage():
                     .all())
         return render_template('home.html', messages=messages)
     else:
-        # Handle the case for anonymous users
         return render_template('home-anon.html')
 
 
