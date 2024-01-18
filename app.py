@@ -329,6 +329,9 @@ def homepage():
                     .limit(100)
                     .all())
         return render_template('home.html', messages=messages)
+    else:
+        # Handle the case for anonymous users
+        return render_template('home-anon.html')
 
 
 
