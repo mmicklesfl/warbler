@@ -314,7 +314,7 @@ def show_likes(user_id):
     return render_template('users/likes.html', user=user, likes=user.likes)
 
 
-@app.route('/messages/<int:message_id>/like', methods=['POST'])
+@app.route('/users/add_like/<int:message_id>', methods=['POST'])
 def add_like(message_id):
     """Toggle a liked message for the currently-logged-in user."""
     
@@ -328,14 +328,14 @@ def add_like(message_id):
         flash("You cannot like your own message.", "danger")
         return redirect("/")
 
-    like = Like.query.filter_by(user_id=g.user.id, message_id=message_id).first()
+    like = Likes.query.filter_by(user_id=g.user.id, message_id=message_id).first()
 
     if like:
         db.session.delete(like)
         db.session.commit()
         flash("Like removed.", "success")
     else:
-        new_like = Like(user_id=g.user.id, message_id=message_id)
+        new_like = Likes(user_id=g.user.id, message_id=message_id)
         db.session.add(new_like)
         db.session.commit()
         flash("Message liked!", "success")
